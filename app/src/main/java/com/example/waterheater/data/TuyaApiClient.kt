@@ -33,6 +33,7 @@ data class WaterHeaterStatus(
 
 data class TuyaScheduleTimer(
     val timerId: String,
+    val groupId: String = "",
     val time: String,
     val daysFormatted: String,
     val actionText: String,
@@ -295,7 +296,7 @@ class TuyaApiClient(
                     val list = mutableListOf<TuyaScheduleTimer>()
                     val resultJson = json.opt("result")
 
-                    val processTimersArray = { timersArray: JSONArray ->
+                    val processTimersArray = { timersArray: JSONArray, gId: String ->
                         for (j in 0 until timersArray.length()) {
                             val timerObj = timersArray.optJSONObject(j)
                             if (timerObj != null) {
@@ -316,6 +317,7 @@ class TuyaApiClient(
                                 list.add(
                                     TuyaScheduleTimer(
                                         timerId = tId,
+                                        groupId = gId,
                                         time = timeStr,
                                         daysFormatted = formatLoops(loops),
                                         actionText = action,
@@ -327,9 +329,10 @@ class TuyaApiClient(
                     }
 
                     val processGroupObject = { groupObj: JSONObject ->
+                        val gId = groupObj.optString("id", "")
                         val timersArr = groupObj.optJSONArray("timers")
                         if (timersArr != null) {
-                            processTimersArray(timersArr)
+                            processTimersArray(timersArr, gId)
                         }
                     }
 
@@ -363,6 +366,7 @@ class TuyaApiClient(
                                 list.add(
                                     TuyaScheduleTimer(
                                         timerId = tId,
+                                        groupId = "",
                                         time = timeStr,
                                         daysFormatted = formatLoops(loops),
                                         actionText = action,
@@ -389,6 +393,123 @@ class TuyaApiClient(
             e.printStackTrace()
         }
         return@withContext emptyList()
+    }
+
+    /**
+     * Creates a scheduled cloud timer on the device using Tuya OpenAPI.
+     * Endpoint: POST /v1.0/devices/{device_id}/timers
+     * Returns the created timer group_id on success, or null on failure.
+     */
+    suspend fun createDeviceTimer(
+        time: String,
+        turnOn: Boolean,
+        loops: String = "1111111",
+        timezoneId: String = "Europe/London"
+    ): String? = withContext(Dispatchers.IO) {
+        try {
+            val token = getAccessToken()
+            val timestamp = System.currentTimeMillis().toString()
+            val path = "/v1.0/devices/${credentials.deviceId}/timers"
+            val url = "${credentials.regionUrl}$path"
+
+            val funcArr = JSONArray().apply {
+                put(JSONObject().apply {
+                    put("code", "switch_1")
+                    put("value", turnOn)
+                })
+            }
+            val instructItem = JSONObject().apply {
+                put("date", "00000000")
+                put("time", time)
+                put("functions", funcArr)
+            }
+            val instructArr = JSONArray().apply {
+                put(instructItem)
+            }
+
+            val payloadJson = JSONObject().apply {
+                put("loops", loops)
+                put("timezone_id", timezoneId)
+                put("category", "category_socket")
+                put("instruct", instructArr)
+            }
+
+            val jsonBodyStr = payloadJson.toString()
+            val bodyHash = sha256(jsonBodyStr)
+            val httpMethod = "POST"
+            val headers = ""
+
+            val stringToSign = "$httpMethod\n$bodyHash\n$headers\n$path"
+            val signPayload = "${credentials.clientId}$token$timestamp$stringToSign"
+            val sign = hmacSha256(signPayload, credentials.secret).uppercase()
+
+            val mediaType = "application/json; charset=utf-8".toMediaType()
+            val requestBody = jsonBodyStr.toRequestBody(mediaType)
+
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("client_id", credentials.clientId)
+                .addHeader("access_token", token)
+                .addHeader("sign", sign)
+                .addHeader("t", timestamp)
+                .addHeader("sign_method", "HMAC-SHA256")
+                .post(requestBody)
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                val jsonStr = response.body?.string() ?: return@withContext null
+                val json = JSONObject(jsonStr)
+                if (json.optBoolean("success", false)) {
+                    val resultObj = json.optJSONObject("result")
+                    return@withContext resultObj?.optString("group_id", "created") ?: "created"
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return@withContext null
+    }
+
+    /**
+     * Deletes a scheduled timer group from the device.
+     * Endpoint: DELETE /v1.0/devices/{device_id}/timers?group_id={groupId}
+     */
+    suspend fun deleteDeviceTimerGroup(groupId: String): Boolean = withContext(Dispatchers.IO) {
+        if (groupId.isBlank()) return@withContext false
+        try {
+            val token = getAccessToken()
+            val timestamp = System.currentTimeMillis().toString()
+            val path = "/v1.0/devices/${credentials.deviceId}/timers"
+            val queryParam = "group_id=$groupId"
+            val url = "${credentials.regionUrl}$path?$queryParam"
+
+            val bodyHash = sha256("")
+            val httpMethod = "DELETE"
+            val headers = ""
+
+            val stringToSign = "$httpMethod\n$bodyHash\n$headers\n$path?$queryParam"
+            val signPayload = "${credentials.clientId}$token$timestamp$stringToSign"
+            val sign = hmacSha256(signPayload, credentials.secret).uppercase()
+
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("client_id", credentials.clientId)
+                .addHeader("access_token", token)
+                .addHeader("sign", sign)
+                .addHeader("t", timestamp)
+                .addHeader("sign_method", "HMAC-SHA256")
+                .delete()
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                val jsonStr = response.body?.string() ?: return@withContext false
+                val json = JSONObject(jsonStr)
+                return@withContext json.optBoolean("success", false)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return@withContext false
     }
 
     private fun formatLoops(loops: String): String {

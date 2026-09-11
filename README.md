@@ -6,7 +6,8 @@ An Android app to remotely control an immersion water heater via the **[Timeguar
 
 - **Remote control** — turn the heater on/off with configurable countdown timers via the Tuya OpenAPI
 - **Thermal model** — calculates how long to heat based on target temperature, tank size, and element rating
-- **Seasonal inlet temperature** — uses a UKWIR-calibrated sine-wave formula to estimate incoming cold water temperature by day-of-year (no sensor needed)
+- **Seasonal inlet temperature** — uses a calibrated sine-wave formula to estimate incoming cold water temperature by day-of-year across 9 regions (no sensor needed)
+- **"Ready by [Time]" automated schedule** — backwards-calculates exact switch-on time from your target ready time (e.g. 07:00 AM) and programs autonomous hardware timers into Tuya Cloud
 - **Quick presets** — 30 min, 1h, 1.5h, 2h, and Full Tank boosts dynamically adjusted to the season
 - **Custom slider** — dial in exact duration with live energy (kWh) and shower-water estimates
 - **Legionella-safe defaults** — 60 °C target temperature by default
@@ -144,6 +145,26 @@ The app **defaults to the United Kingdom 🇬🇧**, but you can select your reg
 
 > **ℹ️ Shower duration assumptions**
 > The preset labels (e.g. *"4 min Quick Shower"*) assume a **power shower at ~12 litres/minute**. If you have a gravity-fed or standard mixer shower (~8 L/min), the same volume of hot water will last proportionally longer — multiply the quoted minutes by ~1.5 as a rough guide.
+
+---
+
+## 🌅 "Ready by [Time]" Automated Morning Heating
+
+Instead of manually guessing when to switch the immersion heater on before waking up, the **Schedules** tab provides an automated **Ready by Time** feature:
+
+1. **Set your target:** Choose when you need hot water (e.g. `07:00 AM`) and which days to repeat (`Everyday`, `Weekdays`, etc.).
+2. **Reverse seasonal calculation:** The app determines the exact switch-on time by subtracting the seasonal heating duration needed to bring your tank to 60 °C:
+   - **Summer (~16 °C inlet):** Starts heating at **~02:15 AM** (for a standard 266 L tank) or **~04:20 AM** (for a 150 L tank).
+   - **Winter (~4 °C inlet):** Starts heating earlier at **~00:55 AM** (for a 266 L tank) or **~03:20 AM** (for a 150 L tank).
+3. **One-tap cloud programming:** Tap **Program Timers to Relay** to write the paired `Turn ON` and `Turn OFF` timers directly to Tuya Cloud.
+
+### Autonomous Cloud Execution & Seasonal Re-Sync Cadence
+
+- **Fully Autonomous:** Once programmed, Tuya Cloud executes the timers reliably every day directly on your switch, even if your phone is turned off, in airplane mode, or out of battery.
+- **Seasonal Cadence:** Ground water temperature shifts very slowly (~0.05 °C per day, amounting to only ~1–2 minutes of heating variation per week). You **only need to re-sync the schedule seasonally** (e.g., in Spring, Summer, Autumn, and Winter) by opening the app and tapping the program button.
+- **Economy 7 / Off-Peak Synergy:** Finishing heating right at your wake-up time (e.g. 07:00 AM) minimizes overnight standby heat loss and ensures heating occurs during cheap nighttime electricity rates.
+
+---
 
 ## Tuya API Architecture
 

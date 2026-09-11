@@ -3,7 +3,9 @@ package com.example.waterheater.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.waterheater.data.BoostPreset
+import com.example.waterheater.data.CalculatedScheduleTimes
 import com.example.waterheater.data.PREDEFINED_REGIONS
+import com.example.waterheater.data.ReadyBySchedule
 import com.example.waterheater.data.RegionProfile
 import com.example.waterheater.data.SeasonalModel
 import com.example.waterheater.data.TankConfig
@@ -38,7 +40,12 @@ data class UiState(
     // Seasonal mains water temperature estimate (UKWIR formula, no external API)
     val mainsTempC: Double = SeasonalModel.mainsWaterTempC(),
     // Active region profile driving the seasonal model
-    val selectedRegion: RegionProfile = UK_REGION
+    val selectedRegion: RegionProfile = UK_REGION,
+    // "Ready by [Time]" automated morning schedule
+    val readyBySchedule: ReadyBySchedule = ReadyBySchedule(),
+    val calculatedSchedule: CalculatedScheduleTimes = ThermalModel.calculateReadyByScheduleTimes(ReadyBySchedule(), TankConfig()),
+    val isScheduleSynced: Boolean = false,
+    val isSyncingSchedule: Boolean = false
 )
 
 class WaterHeaterViewModel(
@@ -153,11 +160,13 @@ class WaterHeaterViewModel(
         repository.updateTankConfig(newConfig)
         val newEstimate = ThermalModel.calculateEstimate(_uiState.value.selectedBoostMinutes * 60, newConfig)
         val newPresets = ThermalModel.getPresets(newConfig)
+        val newCalcSchedule = ThermalModel.calculateReadyByScheduleTimes(_uiState.value.readyBySchedule, newConfig)
 
         _uiState.value = _uiState.value.copy(
             tankConfig = newConfig,
             thermalEstimate = newEstimate,
             presets = newPresets,
+            calculatedSchedule = newCalcSchedule,
             selectedRegion = region,
             mainsTempC = SeasonalModel.mainsWaterTempC(),
             isSettingsDialogVisible = false,
@@ -196,6 +205,60 @@ class WaterHeaterViewModel(
 
     fun showSettingsDialog(show: Boolean) {
         _uiState.value = _uiState.value.copy(isSettingsDialogVisible = show)
+    }
+
+    fun updateReadyByTargetTime(hour: Int, minute: Int) {
+        val newSchedule = _uiState.value.readyBySchedule.copy(targetHour = hour, targetMinute = minute)
+        repository.updateReadyBySchedule(newSchedule)
+        val newCalc = ThermalModel.calculateReadyByScheduleTimes(newSchedule, _uiState.value.tankConfig)
+        _uiState.value = _uiState.value.copy(
+            readyBySchedule = newSchedule,
+            calculatedSchedule = newCalc,
+            isScheduleSynced = false
+        )
+    }
+
+    fun updateReadyByRepeatDays(repeatDays: String) {
+        val newSchedule = _uiState.value.readyBySchedule.copy(repeatDays = repeatDays)
+        repository.updateReadyBySchedule(newSchedule)
+        _uiState.value = _uiState.value.copy(
+            readyBySchedule = newSchedule,
+            isScheduleSynced = false
+        )
+    }
+
+    fun syncReadyByScheduleToTuya() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSyncingSchedule = true)
+            val schedule = _uiState.value.readyBySchedule
+            val calc = _uiState.value.calculatedSchedule
+            val success = repository.syncReadyByScheduleToTuya(calc, schedule)
+            val refreshedSchedules = repository.fetchSchedules()
+            _uiState.value = _uiState.value.copy(
+                isSyncingSchedule = false,
+                isScheduleSynced = success,
+                schedules = refreshedSchedules,
+                userNotification = if (success) {
+                    "Tuya Cloud timers programmed! Turn ON at ${calc.formattedStartTime}, Turn OFF at ${calc.formattedReadyTime}."
+                } else {
+                    "Failed to program timers to Tuya Cloud. Check internet connection."
+                }
+            )
+        }
+    }
+
+    fun deleteReadyBySchedule() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSyncingSchedule = true)
+            val success = repository.deleteReadyByScheduleFromTuya()
+            val refreshedSchedules = repository.fetchSchedules()
+            _uiState.value = _uiState.value.copy(
+                isSyncingSchedule = false,
+                isScheduleSynced = false,
+                schedules = refreshedSchedules,
+                userNotification = if (success) "Morning schedule timers removed from Tuya Relay." else "Failed to remove timers."
+            )
+        }
     }
 
     fun clearNotification() {

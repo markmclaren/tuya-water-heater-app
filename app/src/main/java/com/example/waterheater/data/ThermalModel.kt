@@ -155,6 +155,33 @@ data class ThermalEstimate(
 )
 
 /**
+ * Configuration for the "Ready by [Time]" automated morning schedule.
+ */
+data class ReadyBySchedule(
+    val targetHour: Int = 7,            // Ready by hour (0–23), default 7 (07:00 AM)
+    val targetMinute: Int = 0,          // Ready by minute (0–59), default 0
+    val repeatDays: String = "1111111", // Everyday ("1111111"), Weekdays ("1111100"), etc.
+    val isEnabled: Boolean = true,
+    val targetTempC: Double = 60.0      // Standard hot water cylinder temp
+)
+
+/**
+ * Backwards-calculated schedule timing derived from seasonal thermal physics.
+ */
+data class CalculatedScheduleTimes(
+    val startHour: Int,
+    val startMinute: Int,
+    val targetHour: Int,
+    val targetMinute: Int,
+    val durationMinutes: Int,
+    val energyKwh: Double,
+    val formattedStartTime: String,     // e.g. "04:12"
+    val formattedReadyTime: String,     // e.g. "07:00"
+    val formattedDuration: String,      // e.g. "2h 48m"
+    val tempRiseC: Double               // e.g. 43.8 °C
+)
+
+/**
  * Quick boost preset definition.
  */
 data class BoostPreset(
@@ -168,6 +195,41 @@ data class BoostPreset(
 object ThermalModel {
     private const val WATER_HEAT_CAPACITY = 4184.0 // J / (kg * °C)
     private const val WATER_DENSITY = 1.0          // kg / Liter
+
+    /**
+     * Calculates the exact start time to reach target temperature by the specified ready time.
+     * Starts backwards from ready time by subtracting the seasonal heating duration.
+     */
+    fun calculateReadyByScheduleTimes(
+        schedule: ReadyBySchedule,
+        config: TankConfig
+    ): CalculatedScheduleTimes {
+        val fullHeatSeconds = calculateFullHeatSeconds(config)
+        val durationMins = max(1, (fullHeatSeconds + 59) / 60)
+
+        val readyTotalMins = schedule.targetHour * 60 + schedule.targetMinute
+        val startTotalMins = ((readyTotalMins - durationMins) % 1440 + 1440) % 1440
+
+        val startH = startTotalMins / 60
+        val startM = startTotalMins % 60
+
+        val powerWatts = config.elementKw * 1000.0
+        val energyKwh = (powerWatts * fullHeatSeconds) / 3600000.0
+        val tempRise = max(0.0, config.targetFullTempC - config.coldInletTempC)
+
+        return CalculatedScheduleTimes(
+            startHour = startH,
+            startMinute = startM,
+            targetHour = schedule.targetHour,
+            targetMinute = schedule.targetMinute,
+            durationMinutes = durationMins,
+            energyKwh = energyKwh,
+            formattedStartTime = "%02d:%02d".format(startH, startM),
+            formattedReadyTime = "%02d:%02d".format(schedule.targetHour, schedule.targetMinute),
+            formattedDuration = formatSeconds(fullHeatSeconds),
+            tempRiseC = tempRise
+        )
+    }
 
     /**
      * Calculates thermal metrics for a specific heating duration in seconds.

@@ -65,4 +65,57 @@ class WaterHeaterRepository(
     fun updateTankConfig(newConfig: TankConfig) {
         _tankConfig.value = newConfig
     }
+
+    private val _readyBySchedule = MutableStateFlow(ReadyBySchedule())
+    val readyBySchedule: StateFlow<ReadyBySchedule> = _readyBySchedule.asStateFlow()
+
+    // Tracks the Tuya group IDs of the active "Ready by" timer pair
+    var programmedOnGroupId: String? = null
+        private set
+    var programmedOffGroupId: String? = null
+        private set
+    var lastSyncedCalc: CalculatedScheduleTimes? = null
+        private set
+
+    fun updateReadyBySchedule(schedule: ReadyBySchedule) {
+        _readyBySchedule.value = schedule
+    }
+
+    suspend fun syncReadyByScheduleToTuya(calc: CalculatedScheduleTimes, schedule: ReadyBySchedule): Boolean {
+        // 1. Remove previous programmed timers if known
+        programmedOnGroupId?.let { apiClient.deleteDeviceTimerGroup(it) }
+        programmedOffGroupId?.let { apiClient.deleteDeviceTimerGroup(it) }
+
+        // 2. Program switch ON timer at calculated start time
+        val onId = apiClient.createDeviceTimer(
+            time = calc.formattedStartTime,
+            turnOn = true,
+            loops = schedule.repeatDays
+        )
+
+        // 3. Program switch OFF timer at target ready time
+        val offId = apiClient.createDeviceTimer(
+            time = calc.formattedReadyTime,
+            turnOn = false,
+            loops = schedule.repeatDays
+        )
+
+        programmedOnGroupId = onId
+        programmedOffGroupId = offId
+        val success = onId != null && offId != null
+        if (success) {
+            lastSyncedCalc = calc
+        }
+        return success
+    }
+
+    suspend fun deleteReadyByScheduleFromTuya(): Boolean {
+        var ok = true
+        programmedOnGroupId?.let { ok = apiClient.deleteDeviceTimerGroup(it) && ok }
+        programmedOffGroupId?.let { ok = apiClient.deleteDeviceTimerGroup(it) && ok }
+        programmedOnGroupId = null
+        programmedOffGroupId = null
+        lastSyncedCalc = null
+        return ok
+    }
 }

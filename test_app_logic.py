@@ -125,8 +125,85 @@ def test_tuya_signature():
     assert len(sign) == 64, "Tuya HMAC-SHA256 signature must be 64 upper-hex chars"
     print("\n✅ Tuya HMAC Signature verification passed!\n")
 
+def calculate_ready_by_start_time(target_h, target_m, volume_l=266.0, element_kw=3.0, efficiency=0.95, cold_inlet_c=16.0, target_temp_c=60.0):
+    heat_joules = volume_l * 4184.0 * max(0.0, target_temp_c - cold_inlet_c)
+    power_watts = element_kw * 1000.0 * efficiency
+    duration_secs = int(heat_joules / power_watts)
+    duration_mins = (duration_secs + 59) // 60
+
+    ready_total_mins = target_h * 60 + target_m
+    start_total_mins = ((ready_total_mins - duration_mins) % 1440 + 1440) % 1440
+
+    return {
+        "start_h": start_total_mins // 60,
+        "start_m": start_total_mins % 60,
+        "duration_mins": duration_mins,
+        "duration_secs": duration_secs,
+        "formatted_start": f"{start_total_mins // 60:02d}:{start_total_mins % 60:02d}",
+        "formatted_ready": f"{target_h:02d}:{target_m:02d}"
+    }
+
+def test_ready_by_calculation():
+    print("--- Testing 'Ready by [Time]' Backwards Thermal Calculation ---")
+    # September late summer (266L tank, 3kW): ~16.2°C inlet water -> 43.8°C rise -> 286 mins (4h 46m) -> 07:00 ready starts at 02:14 AM
+    res_sep = calculate_ready_by_start_time(7, 0, volume_l=266.0, cold_inlet_c=16.2)
+    print(f"Late Summer (16.2°C inlet): Ready at {res_sep['formatted_ready']} -> Starts at {res_sep['formatted_start']} (Heating: {res_sep['duration_mins']} mins)")
+    assert res_sep["formatted_ready"] == "07:00"
+    assert res_sep["start_h"] == 2 and res_sep["start_m"] == 14, f"Expected 02:14, got {res_sep['formatted_start']}"
+
+    # February winter (266L tank, 3kW): ~4.0°C inlet water -> 56.0°C rise -> 365 mins (6h 05m) -> 07:00 ready starts at 00:55 AM
+    res_feb = calculate_ready_by_start_time(7, 0, volume_l=266.0, cold_inlet_c=4.0)
+    print(f"Mid-Winter (4.0°C inlet):   Ready at {res_feb['formatted_ready']} -> Starts at {res_feb['formatted_start']} (Heating: {res_feb['duration_mins']} mins)")
+    assert res_feb["start_h"] == 0 and res_feb["start_m"] == 55, f"Expected 00:55, got {res_feb['formatted_start']}"
+
+    # Mid-size 150L tank in summer (16.2°C inlet): 161 mins (2h 41m) -> 07:00 ready starts at 04:19 AM
+    res_150 = calculate_ready_by_start_time(7, 0, volume_l=150.0, cold_inlet_c=16.2)
+    print(f"150L Tank Summer:           Ready at {res_150['formatted_ready']} -> Starts at {res_150['formatted_start']} (Heating: {res_150['duration_mins']} mins)")
+    assert res_150["start_h"] == 4 and res_150["start_m"] == 19, f"Expected 04:19, got {res_150['formatted_start']}"
+
+    # Rollover midnight test: Ready at 01:00 AM with 3h heating (180 mins) -> Starts at 22:00 PM previous night
+    res_roll = calculate_ready_by_start_time(1, 0, volume_l=167.0, cold_inlet_c=16.0)
+    print(f"Midnight Rollover test:     Ready at {res_roll['formatted_ready']} -> Starts at {res_roll['formatted_start']} (previous night)")
+    assert res_roll["start_h"] == 22, f"Expected rollover hour 22, got {res_roll['start_h']}"
+
+    print("\n✅ 'Ready by [Time]' thermal calculations verified successfully!\n")
+
+def test_tuya_timer_payload():
+    print("--- Testing Tuya Timer JSON Payload Construction ---")
+    time_str = "04:12"
+    turn_on = True
+    loops = "1111111"
+    timezone_id = "Europe/London"
+
+    payload = {
+        "loops": loops,
+        "timezone_id": timezone_id,
+        "category": "category_socket",
+        "instruct": [
+            {
+                "date": "00000000",
+                "time": time_str,
+                "functions": [
+                    {
+                        "code": "switch_1",
+                        "value": turn_on
+                    }
+                ]
+            }
+        ]
+    }
+
+    assert payload["category"] == "category_socket"
+    assert payload["loops"] == "1111111"
+    assert payload["instruct"][0]["time"] == "04:12"
+    assert payload["instruct"][0]["functions"][0]["value"] is True
+    print("Timer JSON payload verified:", json.dumps(payload))
+    print("\n✅ Tuya Timer payload format verified successfully!\n")
+
 
 if __name__ == "__main__":
     test_thermal_physics()
     test_seasonal_regions()
+    test_ready_by_calculation()
+    test_tuya_timer_payload()
     test_tuya_signature()

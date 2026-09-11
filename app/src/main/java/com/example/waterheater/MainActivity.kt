@@ -112,7 +112,11 @@ class MainActivity : ComponentActivity() {
                         } else {
                             SchedulesScreen(
                                 state = state,
-                                onRefresh = { viewModel.refreshStatus() }
+                                onRefresh = { viewModel.refreshStatus() },
+                                onUpdateTime = { h, m -> viewModel.updateReadyByTargetTime(h, m) },
+                                onUpdateRepeatDays = { days -> viewModel.updateReadyByRepeatDays(days) },
+                                onSyncSchedule = { viewModel.syncReadyByScheduleToTuya() },
+                                onDeleteSchedule = { viewModel.deleteReadyBySchedule() }
                             )
                         }
                     }
