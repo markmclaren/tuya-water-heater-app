@@ -131,6 +131,9 @@ T_mains = 11.5 + 7.5 × sin(2π × (day_of_year − 60) / 365)
 
 The heating duration for all presets adjusts automatically every day — so the "Full Tank" preset takes longer in February than in August. No sensor or internet connection required.
 
+> **ℹ️ Shower duration assumptions**
+> The preset labels (e.g. *"4 min Quick Shower"*) assume a **power shower at ~12 litres/minute**. If you have a gravity-fed or standard mixer shower (~8 L/min), the same volume of hot water will last proportionally longer — multiply the quoted minutes by ~1.5 as a rough guide.
+
 ## Tuya API Architecture
 
 The app uses the **Tuya OpenAPI** directly (no third-party SDK), authenticating with HMAC-SHA256 signed requests. Credentials are injected at build time from `local.properties` via Gradle `buildConfigField` — they are never stored in source code.

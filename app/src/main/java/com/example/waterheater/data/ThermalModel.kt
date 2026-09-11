@@ -126,6 +126,11 @@ object ThermalModel {
 
     /**
      * Returns standard recommended boost presets.
+     *
+     * Shower duration labels (e.g. "4 min Quick Shower") assume a power shower
+     * flow rate of approximately 12 L/min at 40°C mixed temperature.
+     * A gravity-fed or standard mixer shower (~8 L/min) will give longer
+     * shower times from the same hot water volume.
      */
     fun getPresets(config: TankConfig): List<BoostPreset> {
         val fullHeatMins = (calculateFullHeatSeconds(config) / 60)
