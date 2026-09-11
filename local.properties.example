@@ -1,0 +1,18 @@
+## This file is a TEMPLATE. Copy it to local.properties and fill in your values.
+## local.properties is in .gitignore — never commit it.
+
+# Android SDK path (set automatically by Android Studio, or set manually)
+# sdk.dir=/Users/yourname/Library/Android/sdk
+
+# ============================================================
+# Tuya Cloud API Credentials
+# Get these from: https://iot.tuya.com → Cloud → Your Project
+# ============================================================
+TUYA_CLIENT_ID=your_client_id_here
+TUYA_CLIENT_SECRET=your_client_secret_here
+TUYA_REGION_URL=https://openapi.tuyaeu.com
+
+# ============================================================
+# Device IDs
+# ============================================================
+TUYA_WATER_TANK_DEVICE_ID=your_water_tank_device_id_here
