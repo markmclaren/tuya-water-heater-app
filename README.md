@@ -170,7 +170,7 @@ Instead of manually guessing when to switch the immersion heater on before wakin
 
 ## Tuya API Architecture
 
-The app uses the **Tuya OpenAPI** directly (no third-party SDK), authenticating with HMAC-SHA256 signed requests. Credentials are injected at build time from `local.properties` via Gradle `buildConfigField` — they are never stored in source code.
+The app uses the **Tuya OpenAPI** directly (no third-party SDK), authenticating with HMAC-SHA256 signed requests. Credentials are injected at build time from `local.properties` via Gradle `buildConfigField` — they are never stored in source code. The OpenAPI request signing and endpoint structure were inspired by the protocol analysis and exploration pioneered in [TinyTuya](https://github.com/jasonacox/tinytuya).
 
 ---
 
@@ -183,4 +183,11 @@ The app uses the **Tuya OpenAPI** directly (no third-party SDK), authenticating 
 | `.env` | ❌ No (gitignored) | Credentials for `test_app_logic.py` |
 | `.env.example` | ✅ Yes | Template for `test_app_logic.py` |
 | `app-debug.apk` | ❌ No (gitignored) | Build output |
+
+---
+
+## Credits & Inspiration
+
+- **[TinyTuya](https://github.com/jasonacox/tinytuya)** by [Jason Cox](https://github.com/jasonacox) — Huge inspiration for this project! TinyTuya's Python library, setup wizard, and protocol documentation provided invaluable guidance for exploring the Tuya IoT ecosystem, understanding OpenAPI HMAC-SHA256 signature generation, discovering device IDs/local keys, and mapping device datapoints.
+
 
