@@ -1,6 +1,6 @@
 # 💧 Smart Water Heater Controller (Android)
 
-An Android app to remotely control an immersion water heater via a [Tuya Smart](https://iot.tuya.com) Wi-Fi relay switch. Calculates optimal heating duration based on a seasonal mains water temperature model — no external sensors or APIs required.
+An Android app to remotely control an immersion water heater via the **[Timeguard FSTWIFI Wi-Fi Controlled Fused Spur Timeswitch](https://www.timeguard.com/products/time-switches/fstwifi/)** — a Tuya-based smart wall socket widely used in the UK for immersion heaters and storage heaters. Calculates the optimal heating duration based on a seasonal mains water temperature model calibrated for UK distribution systems, with no external sensors or APIs required.
 
 ## Features
 
@@ -13,7 +13,25 @@ An Android app to remotely control an immersion water heater via a [Tuya Smart](
 
 ## Screenshots
 
-> See `ui_screenshot.jpg` for a preview of the dashboard.
+<p align="center">
+  <img src="ui_screenshot.jpg" alt="Water Heater Boost app dashboard" width="320">
+</p>
+
+*The dashboard shows today's estimated mains water temperature (seasonal formula), quick boost presets with durations dynamically adjusted to the season, and the custom boost calculator with live energy and shower-water estimates.*
+
+---
+
+## Tested Hardware
+
+This app was built and tested in the UK with the **Timeguard FSTWIFI Wi-Fi Controlled Fused Spur Timeswitch**:
+
+- **Model:** `WIFIRELYAY` (Tuya product category: `kg`)
+- **Fused spur output:** 13 A — suitable for immersion heaters up to 3 kW
+- **Protocol:** Tuya Smart / Local Key (firmware 3.3 / 3.4)
+- **Commands used:** `switch_1` (on/off), `countdown_1` (0–86400 s timer)
+- **UK-specific:** Designed for standard UK unvented and vented hot water cylinders
+
+Any other Tuya-compatible relay or smart switch with `switch_1` and `countdown_1` datapoints should also work — just update `TUYA_WATER_TANK_DEVICE_ID` in `local.properties`.
 
 ---
 
@@ -27,8 +45,8 @@ An Android app to remotely control an immersion water heater via a [Tuya Smart](
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/your-username/water-heater-app.git
-cd water-heater-app
+git clone https://github.com/markmclaren/tuya-water-heater-app.git
+cd tuya-water-heater-app
 ```
 
 ### 2. Configure credentials
@@ -98,13 +116,19 @@ water-heater-app/
 
 ## Seasonal Water Temperature Model
 
-The app estimates incoming cold water temperature using a UKWIR-calibrated formula — no sensors or API calls needed:
+This model is calibrated for **UK mains water distribution systems** based on UKWIR (UK Water Industry Research) data. Cold water pipes in the UK are buried at approximately 750 mm depth, and the mains temperature follows a smooth seasonal cycle:
 
 ```
 T_mains = 11.5 + 7.5 × sin(2π × (day_of_year − 60) / 365)
 ```
 
-This gives approximately **4 °C** in late February and **19 °C** in late August for a typical UK distribution system. The heating duration for all presets adjusts automatically every day.
+| Season | Approximate mains temp |
+|---|---|
+| Late February (coldest) | ~4 °C |
+| Spring / Autumn | ~11.5 °C |
+| Late August (warmest) | ~19 °C |
+
+The heating duration for all presets adjusts automatically every day — so the "Full Tank" preset takes longer in February than in August. No sensor or internet connection required.
 
 ## Tuya API Architecture
 
