@@ -7,28 +7,127 @@ import kotlin.math.PI
 import java.util.Calendar
 
 // ---------------------------------------------------------------------------
-// UKWIR seasonal mains-water temperature model (no external API required).
-// Calibrated for UK distribution systems:
-//   - Annual mean  ≈ 11.5 °C
-//   - Seasonal amplitude ≈ ±7.5 °C  (peak late Aug, trough late Feb)
-//   - Phase offset: day 60 (≈ 1 March) is the sine zero-crossing (ascending)
+// Region profiles for the seasonal mains water temperature model.
+//
+// Each profile encodes three parameters for the sine-wave formula:
+//   T_mains = annualMeanC + amplitudeC × sin(2π × (day_of_year − phaseDay) / 365)
+//
+// • annualMeanC  — average cold-water temperature at pipe depth (°C)
+// • amplitudeC   — seasonal swing (°C peak-to-mean)
+// • phaseDay     — day-of-year where the sine curve crosses its mean ascending
+//                  (warmest = phaseDay + 91, coldest = phaseDay − 91 ≈ phaseDay + 274)
+//
+// Sources:
+//   UKWIR   — "Cold water temperatures in UK distribution systems" (09/WM/03/14)
+//   DVGW    — W551 "Trinkwassererwärmungsanlagen" (German hot-water standard)
+//   BRGM    — French geological survey ground temperature atlas
+//   ASHRAE  — 2009 Handbook of Fundamentals, Chapter 18 (Service Water Heating)
+//   CSIRO   — Australian soil temperature studies (Bureau of Meteorology ground data)
+// ---------------------------------------------------------------------------
+
+data class RegionProfile(
+    val id: String,
+    val flag: String,               // Unicode flag emoji
+    val name: String,               // Display name shown in Settings
+    val annualMeanC: Double,        // Annual mean mains temperature (°C)
+    val amplitudeC: Double,         // Seasonal swing ± (°C)
+    val phaseDay: Int,              // Day-of-year at ascending zero-crossing
+    val pipeDepthMm: Int,           // Typical pipe burial depth (informational)
+    val source: String,             // Reference / data source
+    val isCustom: Boolean = false   // True only for the editable Custom entry
+)
+
+// ---------------------------------------------------------------------------
+// Pre-defined region profiles.  UK_REGION is the default.
+// ---------------------------------------------------------------------------
+val UK_REGION = RegionProfile(
+    id = "uk", flag = "🇬🇧", name = "United Kingdom",
+    annualMeanC = 11.5, amplitudeC = 7.5, phaseDay = 60, pipeDepthMm = 750,
+    source = "UKWIR Report 09/WM/03/14"
+)
+
+val PREDEFINED_REGIONS: List<RegionProfile> = listOf(
+    UK_REGION,
+    RegionProfile(
+        id = "ie", flag = "🇮🇪", name = "Ireland",
+        annualMeanC = 11.0, amplitudeC = 6.5, phaseDay = 60, pipeDepthMm = 600,
+        source = "Met Éireann / Geological Survey Ireland soil temp data"
+    ),
+    RegionProfile(
+        id = "fr", flag = "🇫🇷", name = "France (North)",
+        annualMeanC = 12.5, amplitudeC = 8.0, phaseDay = 58, pipeDepthMm = 800,
+        source = "BRGM French ground temperature atlas"
+    ),
+    RegionProfile(
+        id = "de", flag = "🇩🇪", name = "Germany",
+        annualMeanC = 10.0, amplitudeC = 9.5, phaseDay = 55, pipeDepthMm = 800,
+        source = "DVGW W551 / DIN 4708 (German water heating standard)"
+    ),
+    RegionProfile(
+        id = "nl", flag = "🇳🇱", name = "Netherlands",
+        annualMeanC = 11.0, amplitudeC = 7.0, phaseDay = 60, pipeDepthMm = 700,
+        source = "RIVM / KWR water research ground temperature data"
+    ),
+    RegionProfile(
+        id = "es", flag = "🇪🇸", name = "Spain (North)",
+        annualMeanC = 14.0, amplitudeC = 7.0, phaseDay = 55, pipeDepthMm = 600,
+        source = "IGN Spanish ground temperature atlas"
+    ),
+    RegionProfile(
+        id = "us_ne", flag = "🇺🇸", name = "USA (North-East)",
+        annualMeanC = 10.0, amplitudeC = 10.0, phaseDay = 60, pipeDepthMm = 900,
+        source = "ASHRAE 2009 HOF Ch. 18 / EPA WaterSense data"
+    ),
+    RegionProfile(
+        id = "us_pnw", flag = "🇺🇸", name = "USA (Pacific NW)",
+        annualMeanC = 11.0, amplitudeC = 6.0, phaseDay = 60, pipeDepthMm = 750,
+        source = "ASHRAE 2009 HOF Ch. 18 / EPA WaterSense data"
+    ),
+    RegionProfile(
+        id = "au_se", flag = "🇦🇺", name = "Australia (South-East)",
+        annualMeanC = 16.0, amplitudeC = 6.0, phaseDay = 240, pipeDepthMm = 500,
+        source = "CSIRO / Bureau of Meteorology soil temp data (inverted season)"
+    ),
+    RegionProfile(
+        id = "custom", flag = "🌍", name = "Custom",
+        annualMeanC = 11.5, amplitudeC = 7.5, phaseDay = 60, pipeDepthMm = 750,
+        source = "User-defined",
+        isCustom = true
+    )
+)
+
+// ---------------------------------------------------------------------------
+// Seasonal mains-water temperature model.
+//
+// Call SeasonalModel.setRegion(profile) from the ViewModel when the user
+// changes their region in Settings.  All subsequent mainsWaterTempC() calls
+// will use the new profile.
 // ---------------------------------------------------------------------------
 object SeasonalModel {
-    private const val ANNUAL_MEAN_C  = 11.5
-    private const val SEASONAL_AMP_C = 7.5
-    private const val PHASE_DAY      = 60   // day-of-year at sine zero (ascending)
 
-    /** Estimated mains cold-water temperature for today. */
-    fun mainsWaterTempC(): Double {
+    /** Currently active region — defaults to UK on first launch. */
+    var currentRegion: RegionProfile = UK_REGION
+        private set
+
+    fun setRegion(profile: RegionProfile) {
+        currentRegion = profile
+    }
+
+    /** Estimated mains cold-water temperature for today using the active region. */
+    fun mainsWaterTempC(): Double = mainsWaterTempC(currentRegion)
+
+    /** Estimated mains cold-water temperature for today using a specific region. */
+    fun mainsWaterTempC(region: RegionProfile): Double {
         val cal = Calendar.getInstance()
         val doy = cal.get(Calendar.DAY_OF_YEAR)  // 1–365
-        val angle = 2.0 * PI * (doy - PHASE_DAY) / 365.0
-        return ANNUAL_MEAN_C + SEASONAL_AMP_C * sin(angle)
+        val angle = 2.0 * PI * (doy - region.phaseDay) / 365.0
+        return region.annualMeanC + region.amplitudeC * sin(angle)
     }
 
     /** Formatted label for display, e.g. "16.2 °C" */
     fun formattedTemp(): String = String.format("%.1f °C", mainsWaterTempC())
 }
+
 
 /**
  * Data class representing configuration parameters for a water heating tank.

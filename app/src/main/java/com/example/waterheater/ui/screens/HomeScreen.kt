@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.waterheater.data.BoostPreset
+import com.example.waterheater.data.RegionProfile
 import com.example.waterheater.data.SeasonalModel
 import com.example.waterheater.data.ThermalEstimate
 import com.example.waterheater.data.ThermalModel
@@ -114,7 +115,7 @@ fun HomeScreen(
             )
 
             // Mains water temperature seasonal info chip
-            MainsWaterTempChip(mainsTempC = state.mainsTempC)
+            MainsWaterTempChip(mainsTempC = state.mainsTempC, region = state.selectedRegion)
             
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 val chunkedPresets = state.presets.chunked(2)
@@ -508,7 +509,7 @@ fun ThermalMetricBox(
  * derived from the UKWIR seasonal formula. Not interactive.
  */
 @Composable
-fun MainsWaterTempChip(mainsTempC: Double) {
+fun MainsWaterTempChip(mainsTempC: Double, region: RegionProfile? = null) {
     Surface(
         color = SurfaceVariantCard,
         shape = RoundedCornerShape(20.dp),
@@ -527,8 +528,9 @@ fun MainsWaterTempChip(mainsTempC: Double) {
             Spacer(modifier = Modifier.width(8.dp))
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    val flagPrefix = if (region != null) "${region.flag} " else ""
                     Text(
-                        text = "Mains water today: ",
+                        text = "${flagPrefix}Mains water today: ",
                         fontSize = 13.sp,
                         color = TextSecondary
                     )
@@ -538,6 +540,14 @@ fun MainsWaterTempChip(mainsTempC: Double) {
                         fontWeight = FontWeight.Bold,
                         color = CyanWaterPrimary
                     )
+                    if (region != null) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "(${region.name})",
+                            fontSize = 11.sp,
+                            color = TextMuted
+                        )
+                    }
                 }
                 Text(
                     text = "seasonal formula · heating times adjusted",

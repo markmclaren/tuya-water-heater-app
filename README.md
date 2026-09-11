@@ -117,19 +117,30 @@ tuya-water-heater-app/
 
 ## Seasonal Water Temperature Model
 
-This model is calibrated for **UK mains water distribution systems** based on UKWIR (UK Water Industry Research) data. Cold water pipes in the UK are buried at approximately 750 mm depth, and the mains temperature follows a smooth seasonal cycle:
+Incoming mains water temperature varies throughout the year due to seasonal ground temperature cycles at typical water pipe burial depths. The app uses an empirical sine-wave model:
 
 ```
-T_mains = 11.5 + 7.5 × sin(2π × (day_of_year − 60) / 365)
+T_mains = mean + amplitude × sin(2π × (day_of_year − phase_day) / 365)
 ```
 
-| Season | Approximate mains temp |
-|---|---|
-| Late February (coldest) | ~4 °C |
-| Spring / Autumn | ~11.5 °C |
-| Late August (warmest) | ~19 °C |
+The heating duration for all presets adjusts automatically every day — so the "Full Tank" preset takes longer in February than in August. No temperature sensor or internet connection required.
 
-The heating duration for all presets adjusts automatically every day — so the "Full Tank" preset takes longer in February than in August. No sensor or internet connection required.
+### Supported Regional Profiles
+
+The app **defaults to the United Kingdom 🇬🇧**, but you can select your region in **Settings → Tank Physics** (marked with national flags):
+
+| Flag | Region | Annual Mean | Seasonal Swing | Burial Depth | Data Source / Reference |
+|---|---|---|---|---|---|
+| 🇬🇧 | **United Kingdom (Default)** | 11.5 °C | ±7.5 °C (4–19 °C) | ~750 mm | [UKWIR](https://ukwir.org/) Report 09/WM/03/14 (*"Cold water temperatures in UK distribution systems"*) |
+| 🇮🇪 | **Ireland** | 11.0 °C | ±6.5 °C (4.5–17.5 °C) | ~600 mm | Met Éireann & Geological Survey Ireland soil temperature studies |
+| 🇫🇷 | **France (North)** | 12.5 °C | ±8.0 °C (4.5–20.5 °C) | ~800 mm | BRGM French ground temperature atlas |
+| 🇩🇪 | **Germany** | 10.0 °C | ±9.5 °C (0.5–19.5 °C) | ~800 mm | DVGW W551 & DIN 4708 (*"Trinkwassererwärmungsanlagen"*) |
+| 🇳🇱 | **Netherlands** | 11.0 °C | ±7.0 °C (4–18 °C) | ~700 mm | RIVM & KWR Watercycle Research Institute |
+| 🇪🇸 | **Spain (North)** | 14.0 °C | ±7.0 °C (7–21 °C) | ~600 mm | IGN Spanish ground temperature atlas |
+| 🇺🇸 | **USA (North-East)** | 10.0 °C | ±10.0 °C (0–20 °C) | ~900 mm | ASHRAE 2009 Handbook of Fundamentals, Ch. 18 / EPA WaterSense |
+| 🇺🇸 | **USA (Pacific NW)** | 11.0 °C | ±6.0 °C (5–17 °C) | ~750 mm | ASHRAE 2009 Handbook of Fundamentals, Ch. 18 / EPA WaterSense |
+| 🇦🇺 | **Australia (South-East)** | 16.0 °C | ±6.0 °C (10–22 °C) | ~500 mm | CSIRO & Bureau of Meteorology (Southern hemisphere inverted season) |
+| 🌍 | **Custom** | User-defined | User-defined | Custom | Manual configuration of annual mean, seasonal swing, and phase day |
 
 > **ℹ️ Shower duration assumptions**
 > The preset labels (e.g. *"4 min Quick Shower"*) assume a **power shower at ~12 litres/minute**. If you have a gravity-fed or standard mixer shower (~8 L/min), the same volume of hot water will last proportionally longer — multiply the quoted minutes by ~1.5 as a rough guide.

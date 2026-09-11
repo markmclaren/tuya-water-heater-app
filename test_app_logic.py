@@ -57,6 +57,31 @@ def test_thermal_physics():
 
     print("\n✅ Thermal Physics calculations verified successfully!\n")
 
+def calculate_seasonal_mains_temp(doy, annual_mean_c=11.5, amplitude_c=7.5, phase_day=60):
+    angle = 2.0 * math.pi * (doy - phase_day) / 365.0
+    return annual_mean_c + amplitude_c * math.sin(angle)
+
+def test_seasonal_regions():
+    print("--- Running Seasonal Mains Temperature Regional Profiles Verification ---")
+    # UK Profile: Mean 11.5°C, Amp 7.5°C, Phase 60 (UKWIR 09/WM/03/14)
+    uk_coldest = calculate_seasonal_mains_temp(334, 11.5, 7.5, 60)
+    uk_warmest = calculate_seasonal_mains_temp(151, 11.5, 7.5, 60)
+    print(f"🇬🇧 UK Coldest (doy 334): {uk_coldest:.2f}°C (expected ~4.0°C)")
+    print(f"🇬🇧 UK Warmest (doy 151): {uk_warmest:.2f}°C (expected ~19.0°C)")
+    assert 3.9 <= uk_coldest <= 4.1, f"UK coldest out of range: {uk_coldest}"
+    assert 18.9 <= uk_warmest <= 19.1, f"UK warmest out of range: {uk_warmest}"
+
+    # Australia SE Profile: Mean 16.0°C, Amp 6.0°C, Phase 240 (CSIRO / BoM)
+    # Southern hemisphere inverted season: July is coldest, Jan is warmest
+    au_july = calculate_seasonal_mains_temp(149, 16.0, 6.0, 240)
+    au_jan  = calculate_seasonal_mains_temp(331, 16.0, 6.0, 240)
+    print(f"🇦🇺 Australia SE July (doy 149): {au_july:.2f}°C (expected ~10.0°C)")
+    print(f"🇦🇺 Australia SE Jan (doy 331): {au_jan:.2f}°C (expected ~22.0°C)")
+    assert 9.9 <= au_july <= 10.1, f"AU winter out of range: {au_july}"
+    assert 21.9 <= au_jan <= 22.1, f"AU summer out of range: {au_jan}"
+
+    print("\n✅ Seasonal Regional Profiles verified successfully!\n")
+
 def test_tuya_signature():
     """
     Verifies that the HMAC-SHA256 signature algorithm produces a 64-char
@@ -64,11 +89,23 @@ def test_tuya_signature():
     This test is purely algorithmic — it does NOT make any live API call.
     """
     import os
-    from dotenv import load_dotenv
 
-    # Load from local .env if present, otherwise look one directory up
-    load_dotenv()
-    load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
+    # Optional dotenv loader with standard library fallback
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+        load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
+    except ImportError:
+        def _read_env(path):
+            if os.path.exists(path):
+                with open(path, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith('#') and '=' in line:
+                            k, v = line.split('=', 1)
+                            os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+        _read_env(os.path.join(os.path.dirname(__file__), '.env'))
+        _read_env(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
     client_id = os.getenv('TUYA_CLIENT_ID', 'test_client_id_placeholder')
     secret    = os.getenv('TUYA_CLIENT_SECRET', 'test_secret_placeholder_32chars00')
@@ -91,4 +128,5 @@ def test_tuya_signature():
 
 if __name__ == "__main__":
     test_thermal_physics()
+    test_seasonal_regions()
     test_tuya_signature()

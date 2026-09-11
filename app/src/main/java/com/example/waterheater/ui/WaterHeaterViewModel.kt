@@ -3,10 +3,13 @@ package com.example.waterheater.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.waterheater.data.BoostPreset
+import com.example.waterheater.data.PREDEFINED_REGIONS
+import com.example.waterheater.data.RegionProfile
 import com.example.waterheater.data.SeasonalModel
 import com.example.waterheater.data.TankConfig
 import com.example.waterheater.data.ThermalEstimate
 import com.example.waterheater.data.ThermalModel
+import com.example.waterheater.data.UK_REGION
 import com.example.waterheater.data.WaterHeaterRepository
 import com.example.waterheater.data.WaterHeaterStatus
 import kotlinx.coroutines.Job
@@ -33,7 +36,9 @@ data class UiState(
     val isSettingsDialogVisible: Boolean = false,
     val userNotification: String? = null,
     // Seasonal mains water temperature estimate (UKWIR formula, no external API)
-    val mainsTempC: Double = SeasonalModel.mainsWaterTempC()
+    val mainsTempC: Double = SeasonalModel.mainsWaterTempC(),
+    // Active region profile driving the seasonal model
+    val selectedRegion: RegionProfile = UK_REGION
 )
 
 class WaterHeaterViewModel(
@@ -137,8 +142,9 @@ class WaterHeaterViewModel(
         }
     }
 
-    fun updateTankConfig(volumeLiters: Double, elementKw: Double) {
-        // coldInletTempC is always driven by the seasonal model — not user-editable
+    fun updateTankConfig(volumeLiters: Double, elementKw: Double, region: RegionProfile = _uiState.value.selectedRegion) {
+        // Apply the region first so SeasonalModel uses it for coldInletTempC
+        SeasonalModel.setRegion(region)
         val newConfig = _uiState.value.tankConfig.copy(
             volumeLiters = volumeLiters,
             elementKw = elementKw,
@@ -152,8 +158,19 @@ class WaterHeaterViewModel(
             tankConfig = newConfig,
             thermalEstimate = newEstimate,
             presets = newPresets,
+            selectedRegion = region,
+            mainsTempC = SeasonalModel.mainsWaterTempC(),
             isSettingsDialogVisible = false,
             userNotification = "Tank parameters updated."
+        )
+    }
+
+    /** Change region without touching tank volume/element settings. */
+    fun updateRegionProfile(region: RegionProfile) {
+        updateTankConfig(
+            volumeLiters = _uiState.value.tankConfig.volumeLiters,
+            elementKw = _uiState.value.tankConfig.elementKw,
+            region = region
         )
     }
 

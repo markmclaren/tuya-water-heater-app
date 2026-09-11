@@ -129,8 +129,9 @@ class MainActivity : ComponentActivity() {
                         SettingsDialog(
                             config = state.tankConfig,
                             credentials = state.tuyaCredentials,
-                            onSaveTankConfig = { vol, kw ->
-                                viewModel.updateTankConfig(vol, kw)
+                            selectedRegion = state.selectedRegion,
+                            onSaveTankConfig = { vol, kw, region ->
+                                viewModel.updateTankConfig(vol, kw, region)
                             },
                             onSaveCredentials = { clientId, secret, deviceId, regionUrl ->
                                 viewModel.updateTuyaCredentials(clientId, secret, deviceId, regionUrl)
