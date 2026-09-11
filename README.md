@@ -15,10 +15,12 @@ An Android app to remotely control an immersion water heater via the **[Timeguar
 ## Screenshots
 
 <p align="center">
-  <img src="ui_screenshot.jpg" alt="Water Heater Boost app dashboard" width="320">
+  <img src="ui_screenshot.jpg" alt="Water Heater Boost app dashboard" width="300">&nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="schedules_screenshot.jpg" alt="Heating Schedules screen with Ready by Time automated timers" width="300">
 </p>
 
-*The dashboard shows today's estimated mains water temperature (seasonal formula), quick boost presets with durations dynamically adjusted to the season, and the custom boost calculator with live energy and shower-water estimates.*
+*Left: The dashboard shows today's estimated mains water temperature (seasonal formula), quick boost presets dynamically adjusted to the season, and the custom boost calculator with live energy and shower-water estimates.*
+*Right: The Heating Schedules screen featuring the 'Ready by Time' scheduler, which reverse-calculates the switch-on time to achieve a full 60 °C tank right when needed, and syncs autonomous cloud timers directly to the relay.*
 
 ---
 
