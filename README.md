@@ -94,7 +94,7 @@ Send `app-debug.apk` to yourself (WhatsApp, email, or Google Drive) and tap to i
 ## Project Structure
 
 ```
-water-heater-app/
+tuya-water-heater-app/
 ├── app/src/main/java/com/example/waterheater/
 │   ├── data/
 │   │   ├── TuyaApiClient.kt        # HMAC-SHA256 Tuya OpenAPI client
@@ -109,9 +109,10 @@ water-heater-app/
 │   │       └── RelayStatusScreen.kt
 │   └── MainActivity.kt
 ├── local.properties.example        # ← copy this to local.properties
+├── .env.example                    # ← copy this to .env (for test_app_logic.py)
 ├── build_with_docker.sh            # Docker build script
 ├── Dockerfile
-└── test_app_logic.py               # Physics + HMAC unit tests
+└── test_app_logic.py               # Physics + HMAC-SHA256 unit tests
 ```
 
 ## Seasonal Water Temperature Model
@@ -140,8 +141,9 @@ The app uses the **Tuya OpenAPI** directly (no third-party SDK), authenticating 
 
 | File | Committed? | Purpose |
 |---|---|---|
-| `local.properties` | ❌ No (gitignored) | Build-time credential injection |
+| `local.properties` | ❌ No (gitignored) | Build-time credential injection via `buildConfigField` |
 | `local.properties.example` | ✅ Yes | Template for contributors |
-| `.env` | ❌ No (gitignored) | Python script credentials |
-| `.env.example` | ✅ Yes | Template for Python scripts |
+| `.env` | ❌ No (gitignored) | Credentials for `test_app_logic.py` |
+| `.env.example` | ✅ Yes | Template for `test_app_logic.py` |
+| `app-debug.apk` | ❌ No (gitignored) | Build output |
 
